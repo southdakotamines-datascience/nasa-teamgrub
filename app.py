@@ -26,6 +26,25 @@ def get_neos():
         return jsonify(neo_data)
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
+    
+@app.route('/api/neos/<string:neo_id>')
+def get_neo_id(neo_id):
+    if not NASA_API_KEY:
+        return jsonify({"error": "NASA API key not found."}), 500
+
+    api_url = f"https://api.nasa.gov/neo/rest/v1/neo/{neo_id}?api_key={NASA_API_KEY}"
+
+    try:
+        response = requests.get(api_url)
+        response.raise_for_status()  # Raises an HTTPError for bad responses (4xx or 5xx)
+        neo_data = response.json()
+        return jsonify(neo_data)
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            return jsonify({"error": f"Near Earth Object with ID '{neo_id}' not found."}), 404
+        return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
