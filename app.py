@@ -12,6 +12,7 @@ app = Flask(__name__, static_folder='static')
 def index():
     return send_from_directory('static', 'index.html')
 
+
 @app.route('/api/neos')
 def get_neos():
     if not NASA_API_KEY:
@@ -27,6 +28,7 @@ def get_neos():
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
     
+
 @app.route('/api/neos/<string:neo_id>')
 def get_neo_id(neo_id):
     if not NASA_API_KEY:
@@ -46,6 +48,18 @@ def get_neo_id(neo_id):
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
     
+
+@app.route('/api/ehp')
+def get_ehp():
+    api_url = f"https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=2.5&limit=100&orderby=time"
+
+    try:
+        response = requests.get(api_url)
+        response.raise_for_status()
+        ehp_data = response.json()
+        return jsonify(ehp_data)
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Failed to retrieve data from USGS Earthquake API: {e}"}), 500
 
 
 
