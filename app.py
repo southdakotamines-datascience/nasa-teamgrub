@@ -1,4 +1,9 @@
 from flask import Flask, send_from_directory
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+NASA_API_KEY = os.getenv("NASA_API_KEY")
 
 app = Flask(__name__, static_folder='static')
 
