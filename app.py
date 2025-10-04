@@ -45,6 +45,8 @@ def get_neo_id(neo_id):
         return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
+    
+
 
 if __name__ == '__main__':
     app.run(debug=True)
