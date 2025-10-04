@@ -2,7 +2,7 @@
 #### Members:
 - Jordan Dooley [@jdsdsmt](https://github.com/jdsdsmt) 
 - Lance Rath [@lancedrath](https://github.com/lancedrath)
-- [@yourusername3]()
+- Braden Senger[@bradensenger-glich](https://github.com/bradensenger-glich)
 - [@yourusername4]()
 
 ### Installation Instructions:
