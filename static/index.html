@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <title>Three.js + Flask</title>
@@ -7,17 +7,36 @@
         {
           "imports": {
             "three": "https://unpkg.com/three@0.180.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.180.0/examples/jsm/"
+            "three/addons/": "https://unpkg.com/three@0.180.0/examples/jsm/",
+            "suncalc": "https://esm.sh/suncalc"
           }
         }
     </script>
     <style>
-        body { margin: 0; }
-        canvas { display: block; }
+        body {
+            margin: 0;
+        }
+
+        canvas {
+            display: block;
+        }
     </style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+
 </head>
 <body>
+<script src="/static/js/libraries/astronomy.browser.min.js"></script>
 <script type="module" src="/static/js/three-space.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+<div id="ui-overlay" style="position:fixed; top:20px; left:20px; z-index:10;">
+    <button class="btn" id="focus-earth-btn">Focus Earth</button>
+    <button class="btn" id="focus-moon-btn">Focus Moon</button>
+    <div class="d-flex align-items-center gap-2">
+        <label for="datetime-slider" class="form-label mb-0">Date/Time:</label>
+        <input type="range" class="form-range" id="datetime-slider" min="0" max="1000" value="1000" step="1" style="width:300px;">
+        <span id="datetime-value"></span>
+    </div>
+</div>
 
 </body>
 </html>
