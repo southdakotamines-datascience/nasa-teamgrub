@@ -1,21 +1,32 @@
 import * as THREE from "three";
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createEarthMoon } from './earth-moon.js';
+
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500000);
 const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
 
-const geometry = new THREE.BoxGeometry();
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-const cube = new THREE.Mesh(geometry, material);
-scene.add(cube);
+function init() {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    const rendererDomElement = renderer.domElement;
 
-camera.position.z = 5;
+    const controls = new OrbitControls(camera, rendererDomElement);
+
+    renderer.domElement.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    }, {passive: false}); // Use { passive: false } to ensure preventDefault works
+
+
+    camera.position.z = 15000;
+    const earthMoon = createEarthMoon(scene);
+}
+
+init();
 
 function animate() {
     requestAnimationFrame(animate);
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
     renderer.render(scene, camera);
 }
 animate();

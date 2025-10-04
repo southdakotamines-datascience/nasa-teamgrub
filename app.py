@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 import requests
 
-load_dotenv()
+load_dotenv(override=True)
 NASA_API_KEY = os.getenv("NASA_API_KEY")
 
 app = Flask(__name__, static_folder='static')
