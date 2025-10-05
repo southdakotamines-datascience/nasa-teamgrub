@@ -177,6 +177,57 @@ def get_ehp():
         return jsonify({"error": f"Failed to retrieve data from USGS Earthquake API: {e}"}), 500
 
 
+from math import pi, sin, radians
+
+
+
+@app.route('/impact')
+def impact_page():
+    # serves /static/impact.html
+    return send_from_directory('static', 'impact.html')
+
+def mass_from_diameter(diameter_m: float, density_kg_m3: float) -> float:
+    # sphere volume * density
+    return density_kg_m3 * (4.0/3.0) * pi * (diameter_m/2.0)**3
+
+@app.post('/api/impact')
+def impact_api():
+    p = request.get_json(force=True)
+    try:
+        d = float(p["diameter_m"])
+        rho = float(p["density_kg_m3"])
+        v = float(p["velocity_m_s"])
+        ang = float(p["angle_deg"])
+        lat = float(p["lat"])
+        lon = float(p["lon"])
+    except (KeyError, ValueError):
+        return jsonify({"error":"Bad inputs. Required: lat, lon, diameter_m, density_kg_m3, velocity_m_s, angle_deg"}), 400
+
+    ang = max(1.0, min(89.0, ang))
+    m = mass_from_diameter(d, rho)
+    E_total = 0.5 * m * v**2
+
+    # Toy atmospheric loss model (tunable)
+    L_base = 0.4
+    L = max(0.0, min(0.95, L_base / sin(radians(ang))))
+    E_atm_loss = E_total * L
+    E_ground = E_total - E_atm_loss
+
+    return jsonify({
+        "lat": lat, "lon": lon,
+        "mass_kg": m,
+        "E_total": E_total,
+        "E_atm_loss": E_atm_loss,
+        "E_ground": E_ground,
+        "assumptions": {
+            "density_kg_m3": rho,
+            "angle_deg": ang,
+            "loss_model": "L = clamp(L_base/sin(angle),0..0.95), L_base=0.4"
+        }
+    })
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)

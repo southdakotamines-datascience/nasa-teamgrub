@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Meteor Impact</title>
+  <style>
+    body { margin:0; font-family: system-ui, sans-serif; }
+    #ui { position: fixed; right: 12px; top: 12px; background:#fff; padding:12px; border:1px solid #ddd; border-radius:8px; }
+    label { display:block; margin:6px 0 2px; }
+    input { width: 180px; }
+  </style>
+<script type="module">
+  import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+  import { feature } from "https://cdn.jsdelivr.net/npm/topojson-client@3/+esm";
+
+  // 2:1 aspect to match equirectangular texture
+  const width = 960, height = 480;
+
+  const svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+  // Equirectangular projection to match the texture
+  const projection = d3.geoEquirectangular().fitSize([width, height], { type: "Sphere" });
+  const path = d3.geoPath(projection);
+
+  // 🔹 Draw satellite image as background
+  svg.append("image")
+    .attr("href", "/static/textures/8k_earth_daymap.jpg")
+    .attr("width", width)
+    .attr("height", height)
+    .attr("preserveAspectRatio", "none"); // assumes 2:1 image (equirectangular)
+
+  // 🔹 Load and draw country borders on top (no fill)
+  const topo = await d3.json("/static/countries-110m.json");
+  const countries = feature(topo, topo.objects.countries);
+
+  svg.selectAll("path.country")
+    .data(countries.features)
+    .join("path")
+    .attr("class", "country")
+    .attr("d", path)
+    .attr("fill", "none")
+    .attr("stroke", "#ffffff")
+    .attr("stroke-width", 0.3);
+
+  // 🔹 Marker for clicks
+  const marker = svg.append("circle").attr("r", 0).attr("fill", "red").attr("opacity", 0.8);
+
+  // 🔹 Click handler (unchanged)
+  svg.on("click", async (event) => {
+    const [x, y] = d3.pointer(event);
+    const [lon, lat] = projection.invert([x, y]);
+    marker.attr("cx", x).attr("cy", y).attr("r", 4);
+
+    const payload = {
+      lat, lon,
+      diameter_m: Number(document.getElementById("diameter_m").value),
+      density_kg_m3: Number(document.getElementById("density").value),
+      velocity_m_s: Number(document.getElementById("velocity_m_s").value),
+      angle_deg: Number(document.getElementById("angle_deg").value),
+    };
+
+    const res = await fetch("/api/impact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    const r = Math.min(120, 10 + 10 * Math.log10(1 + data.E_ground / 1e12));
+    svg.selectAll(".impact").data([null]).join("circle")
+      .attr("class", "impact").attr("cx", x).attr("cy", y)
+      .attr("r", r).attr("fill", "orange").attr("opacity", 0.25);
+
+    document.getElementById("out").textContent =
+      `mass=${data.mass_kg.toFixed(1)} kg, E_total=${(data.E_total / 1e12).toFixed(3)} TJ, ` +
+      `E_atm_loss=${(data.E_atm_loss / 1e12).toFixed(3)} TJ, E_ground=${(data.E_ground / 1e12).toFixed(3)} TJ`;
+  });
+</script>
+</head>
+<body>
+  <div id="ui">
+    <strong>Click map to simulate.</strong>
+    <label>Diameter (m)</label>
+    <input id="diameter_m" type="number" step="1" value="50">
+    <label>Density (kg/m³)</label>
+    <input id="density" type="number" step="100" value="3000">
+    <label>Velocity (m/s)</label>
+    <input id="velocity_m_s" type="number" step="100" value="20000">
+    <label>Angle (°)</label>
+    <input id="angle_deg" type="number" step="1" value="45" min="1" max="89">
+    <div id="out" style="margin-top:8px;font-size:12px;color:#444;"></div>
+  </div>
+</body>
+</html>
