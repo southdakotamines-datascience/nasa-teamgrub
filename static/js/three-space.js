@@ -53,8 +53,8 @@ function updateDateRange() {
         // fetchNeosByDateRange(formattedMin, formattedMax).then(r => console.log(r));
         fetchNeoPositions(currentlyFocusedNeoId, formattedMin, formattedMax).then(positions => {
             meteorPositionsData = positions;
-            meteor = drawMeteorPosition(scene, sliderToDate(slider.value), positions);
             drawMeteorPath(scene, positions)
+            meteor = drawMeteorPosition(scene, sliderToDate(slider.value), positions);
             updateLabelPosition(meteorLabel, meteor, camera, renderer);
         });
         fetchNeosByDateRange(formattedMin, formattedMax).then(data => {

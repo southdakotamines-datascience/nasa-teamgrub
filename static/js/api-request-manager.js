@@ -19,6 +19,9 @@ export async function fetchNeoByDateCenter(date) {
 }
 
 export async function fetchNeoPositions(neoId, startDate, endDate) {
+    if (!neoId) {
+        throw new Error('NEO ID is required');
+    }
     let url = `/api/neos/${encodeURIComponent(neoId)}/positions`;
     url += `?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
     const response = await fetch(url);
@@ -29,6 +32,9 @@ export async function fetchNeoPositions(neoId, startDate, endDate) {
 }
 
 export async function fetchNeoDetails(neoId) {
+    if (!neoId) {
+        throw new Error('NEO ID is required');
+    }
     const url = `/api/neos/${encodeURIComponent(neoId)}`;
     const response = await fetch(url);
     if (!response.ok) {
