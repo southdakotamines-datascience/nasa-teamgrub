@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {createEarthMoon, createSunSphere, showMoonOrbit, updateMoonOrbit, updateSunPosition} from './earth-moon.js';
+import {
+    createEarthMoon,
+    createSunSphere,
+    showMoonOrbit,
+    updateMoonOrbit,
+    updateEarthOrbit,
+    showEarthOrbit
+} from './earth-moon.js';
 import {fetchNeoByDateCenter, fetchNeoDetails, fetchNeoPositions, fetchNeosByDateRange} from "./api-request-manager.js";
 import {drawMeteorPath, drawMeteorPosition} from "./meteor-manager.js";
 
@@ -69,6 +76,10 @@ const debouncedShowMoonOrbit = debounce((scene, moon, date) => {
     showMoonOrbit(scene, moon, date);
 }, 50);
 
+const debouncedShowEarthOrbit = debounce((scene, earth, date) => {
+    showEarthOrbit(scene, earth, date);
+}, 50);
+
 const debouncedNeoFetchCenter = debounce((date) => {
     const formattedDate = date.toISOString().slice(0, 10);
     fetchNeoByDateCenter(formattedDate).then(r => console.log(r));
@@ -122,14 +133,44 @@ function renderNEOList(neos) {
             // Fetch and show NEO details
             try {
                 const detailsData = await fetchNeoDetails(neo.id);
+                const minTime = sliderMinDate.getTime();
+                const maxTime = sliderMaxDate.getTime();
+                const filteredApproaches = detailsData.close_approach_data.filter(approach => {
+                    const approachTime = new Date(approach.close_approach_date).getTime();
+                    return approachTime >= minTime && approachTime <= maxTime;
+                });
+
                 details.innerHTML = `
-                    <h5>${detailsData.name}</h5>
-                    <div><b>ID:</b> ${detailsData.id}</div>
-                    <div><b>Est. Diameter:</b> ${detailsData.estimated_diameter.kilometers.estimated_diameter_min.toFixed(2)} - ${detailsData.estimated_diameter.kilometers.estimated_diameter_max.toFixed(2)} km</div>
-                    <div><b>Hazardous:</b> ${detailsData.is_potentially_hazardous_asteroid ? 'Yes' : 'No'}</div>
-                    <div><b>Absolute Magnitude:</b> ${detailsData.absolute_magnitude_h}</div>
-                    <!-- Add more fields as needed -->
-                `;
+  <h5>${detailsData.name}</h5>
+  <div><b>ID:</b> ${detailsData.id}</div>
+  <div><b>Est. Diameter:</b> ${detailsData.estimated_diameter.kilometers.estimated_diameter_min.toFixed(2)} - ${detailsData.estimated_diameter.kilometers.estimated_diameter_max.toFixed(2)} km</div>
+  <div><b>Hazardous:</b> ${detailsData.is_potentially_hazardous_asteroid ? 'Yes' : 'No'}</div>
+  <div><b>Absolute Magnitude (H):</b> ${detailsData.absolute_magnitude_h}</div>
+  <div><b>Close Approaches (${filteredApproaches.length} in range):</b></div>
+  <table class="table table-sm">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Miss Distance (km)</th>
+        <th>Velocity (km/s)</th>
+        <th>Body</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filteredApproaches.slice(0, 3).map(approach => `
+        <tr>
+          <td>${approach.close_approach_date_full || approach.close_approach_date}</td>
+          <td>${Number(approach.miss_distance.kilometers).toLocaleString()}</td>
+          <td>${Number(approach.relative_velocity.kilometers_per_second).toFixed(2)}</td>
+          <td>${approach.orbiting_body}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+  <div><a href="${detailsData.nasa_jpl_url}" target="_blank">More at NASA JPL</a></div>
+`;
+
+
             } catch (err) {
                 console.error(err);
                 details.innerHTML = 'Failed to load details.';
@@ -157,10 +198,12 @@ function updateSlider() {
     const date = sliderToDate(slider.value);
     valueDisplay.textContent = date.toLocaleString();
     updateMoonOrbit(earthMoon.moon, date);
-    updateSunPosition(sun, date);
+    updateEarthOrbit(earthMoon.earth, date);
+    // updateSunPositionGeocentric(sun, date);
     drawMeteorPath(scene, date, meteorPositionsData);
     meteor = drawMeteorPosition(scene, date, meteorPositionsData);
     debouncedShowMoonOrbit(scene, earthMoon.moon, date);
+    debouncedShowEarthOrbit(scene, earthMoon.earth, date);
     debouncedNeoFetchCenter(date);
     // If currently focused object is set, refocus to adjust for new position
     if (currentlyFocusedObject) {
@@ -253,10 +296,20 @@ function init() {
 
 init();
 
+function updateMoonLabelVisibility(moonObject3D, camera, labelElement, maxDistance = 1e7) {
+    const distance = camera.position.distanceTo(moonObject3D.position);
+    if (distance > maxDistance) {
+        labelElement.style.display = 'none';
+    } else {
+        labelElement.style.display = 'block';
+    }
+}
+
 function animate() {
     requestAnimationFrame(animate);
     updateLabelPosition(earthLabel, earthMoon.earth, camera, renderer);
     updateLabelPosition(moonLabel, earthMoon.moon, camera, renderer);
+    updateMoonLabelVisibility(earthMoon.moon, camera, moonLabel, 2e7);
     updateLabelPosition(sunLabel, sun, camera, renderer);
     if (meteor) {
         updateLabelPosition(meteorLabel, meteor, camera, renderer);

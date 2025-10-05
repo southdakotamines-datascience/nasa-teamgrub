@@ -13,7 +13,7 @@ export function drawMeteorPath(scene, struct) {
 
     const positions = struct.positions;
     const points = positions.map(pos => {
-        const { x, y, z } = pos.geocentric_position_km;
+        const { x, y, z } = pos.heliocentric_position_km;
         return new THREE.Vector3(x, y, z);
     });
 
@@ -46,7 +46,7 @@ export function drawMeteorPosition(scene, date, struct) {
         }
     }
     // create a huge sphere at that position
-    const { x, y, z } = closestPosition.geocentric_position_km;
+    const { x, y, z } = closestPosition.heliocentric_position_km;
     const geometry = new THREE.SphereGeometry(500000, 16, 16);
     const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const sphere = new THREE.Mesh(geometry, material);

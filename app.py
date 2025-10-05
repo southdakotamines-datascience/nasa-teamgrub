@@ -1,7 +1,7 @@
 from flask import Flask, send_from_directory, jsonify, request
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from python.meteor_calculator import find_positions
+from python.meteor_calculator import find_positions_geocentric, find_positions_heliocentric
 import os
 import requests
 
@@ -161,7 +161,7 @@ def get_neo_positions(neo_id):
     if not orbital_data:
         return jsonify({"error": "Orbital data not found for this NEO."}), 404
 
-    positions = find_positions(orbital_data, start_date, end_date, resolution)
+    positions = find_positions_heliocentric(orbital_data, start_date, end_date, resolution)
     return jsonify({"neo_id": neo_id, "positions": positions})
 
 @app.route('/api/ehp')
