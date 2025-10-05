@@ -20,22 +20,25 @@
     .attr("width", width)
     .attr("height", height);
 
+  // A group that will be zoomed/panned
+  const mapG = svg.append("g").attr("id", "map");
+
   // Equirectangular projection to match the texture
   const projection = d3.geoEquirectangular().fitSize([width, height], { type: "Sphere" });
   const path = d3.geoPath(projection);
 
-  // 🔹 Draw satellite image as background
-  svg.append("image")
+  // Draw satellite image as background
+  mapG.append("image")
     .attr("href", "/static/textures/8k_earth_daymap.jpg")
     .attr("width", width)
     .attr("height", height)
     .attr("preserveAspectRatio", "none"); // assumes 2:1 image (equirectangular)
 
-  // 🔹 Load and draw country borders on top (no fill)
+  // Load and draw country borders on top (no fill)
   const topo = await d3.json("/static/countries-110m.json");
   const countries = feature(topo, topo.objects.countries);
 
-  svg.selectAll("path.country")
+  mapG.selectAll("path.country")
     .data(countries.features)
     .join("path")
     .attr("class", "country")
@@ -44,40 +47,97 @@
     .attr("stroke", "#ffffff")
     .attr("stroke-width", 0.3);
 
-  // 🔹 Marker for clicks
-  const marker = svg.append("circle").attr("r", 0).attr("fill", "red").attr("opacity", 0.8);
+  // Marker for clicks
+  const marker = mapG.append("circle")
+    .attr("r", 0)
+    .attr("fill", "red")
+    .attr("opacity", 0.5);
 
-  // 🔹 Click handler (unchanged)
-  svg.on("click", async (event) => {
-    const [x, y] = d3.pointer(event);
-    const [lon, lat] = projection.invert([x, y]);
-    marker.attr("cx", x).attr("cy", y).attr("r", 4);
 
-    const payload = {
-      lat, lon,
-      diameter_m: Number(document.getElementById("diameter_m").value),
-      density_kg_m3: Number(document.getElementById("density").value),
-      velocity_m_s: Number(document.getElementById("velocity_m_s").value),
-      angle_deg: Number(document.getElementById("angle_deg").value),
-    };
-
-    const res = await fetch("/api/impact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (data.error) { alert(data.error); return; }
-
-    const r = Math.min(120, 10 + 10 * Math.log10(1 + data.E_ground / 1e12));
-    svg.selectAll(".impact").data([null]).join("circle")
-      .attr("class", "impact").attr("cx", x).attr("cy", y)
-      .attr("r", r).attr("fill", "orange").attr("opacity", 0.25);
-
-    document.getElementById("out").textContent =
-      `mass=${data.mass_kg.toFixed(1)} kg, E_total=${(data.E_total / 1e12).toFixed(3)} TJ, ` +
-      `E_atm_loss=${(data.E_atm_loss / 1e12).toFixed(3)} TJ, E_ground=${(data.E_ground / 1e12).toFixed(3)} TJ`;
+const zoom = d3.zoom()
+  .scaleExtent([1, 8])                     // min/max zoom
+  .translateExtent([[0, 0], [width, height]]) // keep map within viewport bounds
+  .on("zoom", (event) => {
+    mapG.attr("transform", event.transform);
+    const k = event.transform.k;
+    // keep marker dot the same on-screen size
+    marker.attr("r", 4 / k);
+    // keep impact outline stroke width constant on-screen
+    mapG.selectAll(".impact-outline").attr("stroke-width", 2 / k);
   });
+
+
+  // Attach zoom to the SVG only (UI is a separate fixed div, so it won't move)
+  svg.call(zoom);
+
+svg.on("click", async (event) => {
+  // Screen-space click
+  const [sx, sy] = d3.pointer(event, svg.node());
+
+  // ---- NEW: undo the zoom/pan transform to get map-local coords
+  const t = d3.zoomTransform(svg.node());
+  const [mx, my] = t.invert([sx, sy]);    // map coordinates before projection
+
+  // Convert to lon/lat
+  const [lon, lat] = projection.invert([mx, my]);
+
+  // Move marker in map space (so it scales with zoom)
+  marker.attr("cx", mx).attr("cy", my).attr("r", 4);
+
+// Build payload from UI
+const payload = {
+  lat, lon,
+  diameter_m: Number(document.getElementById("diameter_m").value),
+  density_kg_m3: Number(document.getElementById("density").value),
+  velocity_m_s: Number(document.getElementById("velocity_m_s").value),
+  angle_deg: Number(document.getElementById("angle_deg").value),
+};
+
+// POST to Flask
+const res = await fetch("/api/impact", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+});
+const data = await res.json();
+if (data.error) { alert(data.error); return; }
+
+
+const r = Math.min(120, 10 + 10 * Math.log10(1 + data.E_ground / 1e12));
+
+// Filled disk
+mapG.selectAll("circle.impact-fill").data([null]).join("circle")
+  .attr("class", "impact-fill")
+  .attr("cx", mx).attr("cy", my)
+  .attr("r", r)
+  .attr("fill", "orange")
+  .attr("opacity", 0.25);
+
+// Outline (stroke only) — width is kept constant by the zoom handler
+mapG.selectAll("circle.impact-outline").data([null]).join("circle")
+  .attr("class", "impact-outline")
+  .attr("cx", mx).attr("cy", my)
+  .attr("r", r)
+  .attr("fill", "none")
+  .attr("stroke", "orange")
+  .attr("stroke-width", 2)
+  .attr("opacity", 0.9);
+
+
+// Format output as clean multi-line HTML
+const out = document.getElementById("out");
+out.innerHTML = `
+  <table style="border-collapse:collapse;font-size:13px;">
+    <tr><td style="padding:2px 6px;"><b>Mass:</b></td><td>${data.mass_kg.toLocaleString(undefined, {maximumFractionDigits:1})} kg</td></tr>
+    <tr><td style="padding:2px 6px;"><b>Total Energy:</b></td><td>${(data.E_total/1e12).toFixed(3)} TJ</td></tr>
+    <tr><td style="padding:2px 6px;"><b>Atmospheric Loss:</b></td><td>${(data.E_atm_loss/1e12).toFixed(3)} TJ</td></tr>
+    <tr><td style="padding:2px 6px;"><b>Ground Impact:</b></td><td>${(data.E_ground/1e12).toFixed(3)} TJ</td></tr>
+    <tr><td style="padding:2px 6px;"><b>TNT Equivalent:</b></td><td>${(data.E_ground / 4.184e12).toFixed(2)} kT TNT</td></tr>
+  </table>
+`;
+
+});
+
 </script>
 </head>
 <body>
