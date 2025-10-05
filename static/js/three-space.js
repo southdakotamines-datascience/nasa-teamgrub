@@ -85,6 +85,11 @@ const debouncedNeoFetchCenter = debounce((date) => {
     fetchNeoByDateCenter(formattedDate).then(r => console.log(r));
 }, 500);
 
+function updateImpactButtonVisibility(currentFocusedNeoId) {
+    const btnContainer = document.getElementById('impact-btn-container');
+    btnContainer.style.display = currentFocusedNeoId ? '' : 'none';
+}
+
 startDateInput.addEventListener('change', updateDateRange);
 endDateInput.addEventListener('change', updateDateRange);
 
@@ -128,11 +133,13 @@ function renderNEOList(neos) {
             const formattedMin = sliderMinDate.toISOString().slice(0, 10);
             const formattedMax = sliderMaxDate.toISOString().slice(0, 10);
             currentlyFocusedNeoId = neo.id;
-            console.log(neo.name)
+            updateImpactButtonVisibility(currentlyFocusedNeoId);
             meteorLabel.textContent = neo.name;
             // Fetch and show NEO details
             try {
                 const detailsData = await fetchNeoDetails(neo.id);
+                // save the data to session storage for use in impact page
+                sessionStorage.setItem('neo', JSON.stringify(detailsData));
                 const minTime = sliderMinDate.getTime();
                 const maxTime = sliderMaxDate.getTime();
                 const filteredApproaches = detailsData.close_approach_data.filter(approach => {
