@@ -1,19 +1,39 @@
 import * as THREE from "three";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import {createEarthMoon, showMoonOrbit, updateMoonOrbit} from './earth-moon.js';
+import {addSunLight, createEarthMoon, showMoonOrbit, updateMoonOrbit} from './earth-moon.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500000000);
 const renderer = new THREE.WebGLRenderer();
 const controls = new OrbitControls(camera, renderer.domElement);
 const earthMoon = createEarthMoon(scene);
-const sliderMinDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // one month ago
-const sliderMaxDate = new Date(); // Now
+let sliderMinDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // one month ago
+let sliderMaxDate = new Date(); // Now
 const sliderMin = 0
 const sliderMax = 1000;
 const focusScale = 2.5; // Adjust for desired framing
 let currentlyFocusedObject = null;
 
+const slider = document.getElementById('datetime-slider');
+const valueDisplay = document.getElementById('datetime-value');
+const startDateInput = document.getElementById('start-date');
+const endDateInput = document.getElementById('end-date');
+
+// Initialize with default dates
+const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10); // one month ago
+const defaultEnd = new Date().toISOString().slice(0, 10);
+startDateInput.value = defaultStart;
+endDateInput.value = defaultEnd;
+
+// Set slider min/max based on datepickers
+function updateSliderRange() {
+    sliderMinDate = new Date(startDateInput.value);
+    sliderMaxDate = new Date(endDateInput.value);
+    updateSlider();
+}
+
+startDateInput.addEventListener('change', updateSliderRange);
+endDateInput.addEventListener('change', updateSliderRange);
 
 function focusOnObject(object, buttonId = null, preserveZoom = false) {
     // make the button appear pressed
@@ -40,10 +60,6 @@ function focusOnObject(object, buttonId = null, preserveZoom = false) {
     controls.update();
 }
 
-const slider = document.getElementById('datetime-slider');
-const valueDisplay = document.getElementById('datetime-value');
-
-
 // Map slider value to timestamp
 function sliderToDate(val) {
     const t = sliderMinDate.getTime() + (val - sliderMin) / (sliderMax - sliderMin) * (sliderMaxDate.getTime() - sliderMinDate.getTime());
@@ -54,10 +70,7 @@ function updateSlider() {
     const date = sliderToDate(slider.value);
     valueDisplay.textContent = date.toLocaleString();
     updateMoonOrbit(earthMoon.moon, date);
-    // Redraw the orbit to have the max being the current date
-    // and the min being the date - range of the slider
-    const newMinDate = new Date(date.getTime() - (sliderMaxDate.getTime() - sliderMinDate.getTime()));
-    showMoonOrbit(scene, earthMoon.moon, newMinDate, date);
+    showMoonOrbit(scene, earthMoon.moon, date);
     // If currently focused object is set, refocus to adjust for new position
     if (currentlyFocusedObject) {
         focusOnObject(currentlyFocusedObject, null, true);
@@ -105,8 +118,13 @@ function init() {
     }, false);
 
     // Initialize display
+    updateSliderRange();
     updateSlider();
-    showMoonOrbit(scene, earthMoon.moon, sliderMinDate, sliderMaxDate);
+    showMoonOrbit(scene, earthMoon.moon, sliderToDate(slider.value));
+    // addSunLight(scene);
+    // plot x,y,z axes for reference
+    // const axesHelper = new THREE.AxesHelper(10000);
+    // scene.add(axesHelper);
 }
 
 init();

@@ -3,13 +3,21 @@ import * as THREE from 'three';
 let lastMoonOrbitLine = null;
 
 export function createEarthMoon(scene) {
+    const textureLoader = new THREE.TextureLoader();
     const geometry = new THREE.SphereGeometry(6357, 64, 64);
-    const material = new THREE.MeshBasicMaterial({ color: 0x0000ff, wireframe: true });
+    // use a jpg for the earth texture
+    const earthTexture = textureLoader.load('static/textures/8k_earth_daymap.jpg');
+    // const earthNormalMap = textureLoader.load('static/textures/8k_earth_normal_map.tif');
+    // const material = new THREE.MeshStandardMaterial({ map: earthTexture, normalMap: earthNormalMap });
+    const material = new THREE.MeshBasicMaterial({ map: earthTexture });
     const sphere = new THREE.Mesh(geometry, material);
+    // rotate the sphere to match Earth's axial tilt
+    sphere.rotation.y = THREE.MathUtils.degToRad(23.44);
     scene.add(sphere);
 
     const moonGeometry = new THREE.SphereGeometry(1737, 32, 32);
-    const moonMaterial = new THREE.MeshBasicMaterial({ color: 0x888888, wireframe: true });
+    const moonTexture = textureLoader.load('static/textures/8k_moon.jpg');
+    const moonMaterial = new THREE.MeshBasicMaterial({ map: moonTexture });
     const moon = new THREE.Mesh(moonGeometry, moonMaterial);
     moon.position.set(384400, 0, 0); // Average distance from Earth to Moon in km
     scene.add(moon);
@@ -29,10 +37,15 @@ function getMoonPositionAtTime(time) {
     const moonX = moonGeo.x * AU_TO_KM;
     const moonY = moonGeo.y * AU_TO_KM;
     const moonZ = moonGeo.z * AU_TO_KM;
-    return new THREE.Vector3(moonX, moonY, moonZ);
+    const moonVector = new THREE.Vector3(moonX, moonY, moonZ);
+    // rotate the moon vector to make it closer to the ecliptic plane visually
+    const axialTilt = THREE.MathUtils.degToRad(23.44);
+    const rotationMatrix = new THREE.Matrix4().makeRotationX(axialTilt);
+    moonVector.applyMatrix4(rotationMatrix);
+    return moonVector;
 }
 
-export function showMoonOrbit(scene, moon, minDate, maxDate) {
+export function showMoonOrbit(scene, moon, date) {
     if (lastMoonOrbitLine) {
         scene.remove(lastMoonOrbitLine);
         lastMoonOrbitLine.geometry.dispose();
@@ -42,13 +55,13 @@ export function showMoonOrbit(scene, moon, minDate, maxDate) {
     // First find a bunch of points along the orbit
     const points = [];
     const colors = [];
-    const numPoints = 1000;
-    const startTime = new Date();
+    const numPoints = 10000;
     for (let i = 0; i <= numPoints; i++) {
         const t = i / numPoints;
         // use the slider range for the range of times
-
-        const time = new Date(minDate.getTime() + t * (maxDate.getTime() - minDate.getTime()));
+        // make it show only the last month of the orbit
+        const monthAgo = new Date(date.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const time = new Date(monthAgo.getTime() + t * (date.getTime() - monthAgo.getTime()));
         const moonPos = getMoonPositionAtTime(time);
         points.push(new THREE.Vector3(moonPos.x, moonPos.y, moonPos.z));
         // invert the alpha so the orbit fades out at the far end
@@ -65,4 +78,13 @@ export function showMoonOrbit(scene, moon, minDate, maxDate) {
     const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
     lastMoonOrbitLine = orbitLine;
     scene.add(orbitLine);
+}
+
+export function addSunLight(scene) {
+    const sunLight = new THREE.PointLight(0xffffff, 0.5);
+    sunLight.position.set(150000000, 0, 0); // Approximate distance to Sun in km
+    scene.add(sunLight);
+    const ambientLight = new THREE.AmbientLight(0x222222); // Dim ambient light
+    scene.add(ambientLight);
+    return sunLight;
 }
