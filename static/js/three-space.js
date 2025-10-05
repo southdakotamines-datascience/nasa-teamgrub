@@ -290,6 +290,15 @@ function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     }, false);
 
+    const geometry = new THREE.SphereGeometry(1000000000000, 64, 64);
+    const texture = new THREE.TextureLoader().load('/static/textures/8k_stars_milky_way.jpg');
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.BackSide // Render inside of sphere
+    });
+    const skySphere = new THREE.Mesh(geometry, material);
+    scene.add(skySphere);
+
     // Initialize display
     sun = createSunSphere(scene);
     updateDateRange();
