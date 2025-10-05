@@ -1,7 +1,8 @@
 from flask import Flask, send_from_directory, jsonify, request
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from python.meteor_calculator import find_positions_geocentric, find_positions_heliocentric
+from python.meteor_calculator import find_positions_geocentric
+from math import pi, sin, radians
 import os
 import requests
 
@@ -177,10 +178,7 @@ def get_ehp():
         return jsonify({"error": f"Failed to retrieve data from USGS Earthquake API: {e}"}), 500
 
 
-from math import pi, sin, radians
-
-
-
+# ***********************************************************************************************************
 @app.route('/impact')
 def impact_page():
     # serves /static/impact.html
@@ -225,7 +223,7 @@ def impact_api():
             "loss_model": "L = clamp(L_base/sin(angle),0..0.95), L_base=0.4"
         }
     })
-
+# ***********************************************************************************************************
 
 
 
