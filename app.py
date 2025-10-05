@@ -1,7 +1,7 @@
 from flask import Flask, send_from_directory, jsonify, request
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from python.meteor_calculator import find_positions_geocentric
+from python.meteor_calculator import find_positions_heliocentric
 from math import pi, sin, radians
 import os
 import requests
