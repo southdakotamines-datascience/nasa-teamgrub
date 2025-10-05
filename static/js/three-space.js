@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {createEarthMoon, createSunSphere, showMoonOrbit, updateMoonOrbit, updateSunPosition} from './earth-moon.js';
 import {fetchNeoByDateCenter, fetchNeoDetails, fetchNeoPositions, fetchNeosByDateRange} from "./api-request-manager.js";
 import {drawMeteorPath, drawMeteorPosition} from "./meteor-manager.js";
@@ -46,8 +46,9 @@ function updateDateRange() {
         // fetchNeosByDateRange(formattedMin, formattedMax).then(r => console.log(r));
         fetchNeoPositions(currentlyFocusedNeoId, formattedMin, formattedMax).then(positions => {
             meteorPositionsData = positions;
-            drawMeteorPosition(scene, sliderToDate(slider.value), positions);
+            meteor = drawMeteorPosition(scene, sliderToDate(slider.value), positions);
             drawMeteorPath(scene, positions)
+            updateLabelPosition(meteorLabel, meteor, camera, renderer);
         });
         fetchNeosByDateRange(formattedMin, formattedMax).then(data => {
             renderNEOList(data.neos);
@@ -58,7 +59,7 @@ function updateDateRange() {
 
 function debounce(fn, delay) {
     let timeout;
-    return function(...args) {
+    return function (...args) {
         clearTimeout(timeout);
         timeout = setTimeout(() => fn.apply(this, args), delay);
     };
@@ -81,7 +82,7 @@ function focusOnObject(object, buttonId = null, preserveZoom = false) {
     if (buttonId) {
         document.getElementById(buttonId).classList.add('active');
         // Unpress other buttons
-        ['focus-earth-btn', 'focus-moon-btn'].forEach(id => {
+        ['focus-earth-btn', 'focus-moon-btn', 'focus-sun-btn'].forEach(id => {
             if (id !== buttonId) {
                 document.getElementById(id).classList.remove('active');
             }
@@ -137,9 +138,9 @@ function renderNEOList(neos) {
             // Fetch and draw positions as before
             fetchNeoPositions(neo.id, formattedMin, formattedMax).then(positions => {
                 meteorPositionsData = positions;
-                let m = drawMeteorPosition(scene, sliderToDate(slider.value), positions);
+                meteor = drawMeteorPosition(scene, sliderToDate(slider.value), positions);
                 drawMeteorPath(scene, positions);
-                updateLabelPosition(meteorLabel, m, camera, renderer);
+                updateLabelPosition(meteorLabel, meteor, camera, renderer);
             });
         });
         list.appendChild(item);
@@ -179,10 +180,16 @@ function createLabel(name) {
 
 function updateLabelPosition(label, object3D, camera, renderer) {
     const vector = object3D.position.clone().project(camera);
+    if (vector.z < -1 || vector.z > 1) {
+        label.style.display = 'none';
+        return;
+    }
+    label.style.display = 'block';
     const x = (vector.x * 0.5 + 0.5) * renderer.domElement.clientWidth;
-    const y = ( -vector.y * 0.5 + 0.5) * renderer.domElement.clientHeight;
+    const y = (-vector.y * 0.5 + 0.5) * renderer.domElement.clientHeight;
     label.style.left = `${x}px`;
     label.style.top = `${y}px`;
+
 }
 
 // Usage example:
@@ -215,6 +222,14 @@ function init() {
             return;
         }
         focusOnObject(earthMoon.moon, 'focus-moon-btn');
+    };
+    document.getElementById('focus-sun-btn').onclick = () => {
+        if (currentlyFocusedObject === sun) {
+            currentlyFocusedObject = null;
+            document.getElementById('focus-sun-btn').classList.remove('active');
+            return;
+        }
+        focusOnObject(sun, 'focus-sun-btn');
     };
 
     focusOnObject(earthMoon.earth, 'focus-earth-btn');
@@ -249,4 +264,5 @@ function animate() {
     controls.update();
     renderer.render(scene, camera);
 }
+
 animate();

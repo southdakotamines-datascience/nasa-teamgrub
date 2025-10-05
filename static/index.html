@@ -44,6 +44,7 @@
 <div id="ui-overlay" style="position:fixed; top:20px; left:20px; z-index:10;">
     <button class="btn" id="focus-earth-btn">Focus Earth</button>
     <button class="btn" id="focus-moon-btn">Focus Moon</button>
+    <button class="btn" id="focus-sun-btn">Focus Sun</button>
     <div class="d-flex align-items-center gap-2">
         <label for="datetime-slider" class="form-label mb-0">Date/Time:</label>
         <input type="range" class="form-range" id="datetime-slider" min="0" max="1000" value="1000" step="1" style="width:300px;">
@@ -95,8 +96,11 @@
 </div>
 
 <div style="position:fixed; bottom:10px; left:0; width:100%; text-align:center; z-index:20; color:#ccc; font-size:14px; pointer-events:none; text-shadow:0 0 5px #000;">
-    Disclaimer: The Sun and Earth are static in this visualization and do not accurately represent their spins or orbits. The sun is only for scale, so the meteor orbits may seem off. The positions of the meteors are accurate relative to Earth.
-    <p>Note: You may need to zoom out to see some objects.</p>
+    Disclaimer: The Sun and Earth are static in this visualization and do not accurately represent their spins or orbits.
+    The sun is only for scale, so the meteor orbits may seem off.
+    The positions of the meteors are accurate relative to Earth.
+    Asteroid size is enlarged for visibility. Data form NASA NEO API.
+    Note: You may need to zoom out to see some objects.
 </div>
 </body>
 </html>
