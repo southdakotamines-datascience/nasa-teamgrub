@@ -1,19 +1,23 @@
 import * as THREE from "three";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import {createEarthMoon, showMoonOrbit, updateMoonOrbit} from './earth-moon.js';
-import {fetchNeoByDateCenter} from "./api-request-manager.js";
+import {createEarthMoon, createSunSphere, showMoonOrbit, updateMoonOrbit, updateSunPosition} from './earth-moon.js';
+import {fetchNeoByDateCenter, fetchNeoPositions} from "./api-request-manager.js";
+import {drawMeteorPath, drawMeteorPosition} from "./meteor-manager.js";
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500000000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500000000000);
 const renderer = new THREE.WebGLRenderer();
 const controls = new OrbitControls(camera, renderer.domElement);
 const earthMoon = createEarthMoon(scene);
+let meteor = null;
 let sliderMinDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // one month ago
 let sliderMaxDate = new Date(); // Now
 const sliderMin = 0
 const sliderMax = 1000;
 const focusScale = 2.5; // Adjust for desired framing
 let currentlyFocusedObject = null;
+let meteorPositionsData = null; // Store fetched meteor positions data
+let sun = null;
 
 const slider = document.getElementById('datetime-slider');
 const valueDisplay = document.getElementById('datetime-value');
@@ -25,6 +29,10 @@ const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString
 const defaultEnd = new Date().toISOString().slice(0, 10);
 startDateInput.value = defaultStart;
 endDateInput.value = defaultEnd;
+const earthLabel = createLabel('Earth');
+const moonLabel = createLabel('Moon');
+const sunLabel = createLabel('Sun');
+const meteorLabel = createLabel('Meteor');
 
 // Set slider min/max based on datepickers
 function updateDateRange() {
@@ -35,6 +43,11 @@ function updateDateRange() {
         const formattedMax = sliderMaxDate.toISOString().slice(0, 10);
         // Fetch NEO data for the new range
         // fetchNeosByDateRange(formattedMin, formattedMax).then(r => console.log(r));
+        fetchNeoPositions("3542519", formattedMin, formattedMax).then(positions => {
+            meteorPositionsData = positions;
+            drawMeteorPosition(scene, sliderToDate(slider.value), positions);
+            drawMeteorPath(scene, positions)
+        })
     }
     updateSlider();
 }
@@ -84,7 +97,7 @@ function focusOnObject(object, buttonId = null, preserveZoom = false) {
     controls.update();
 }
 
-// Map slider value to timestamp
+// Map slider value to date
 function sliderToDate(val) {
     const t = sliderMinDate.getTime() + (val - sliderMin) / (sliderMax - sliderMin) * (sliderMaxDate.getTime() - sliderMinDate.getTime());
     return new Date(t);
@@ -94,6 +107,9 @@ function updateSlider() {
     const date = sliderToDate(slider.value);
     valueDisplay.textContent = date.toLocaleString();
     updateMoonOrbit(earthMoon.moon, date);
+    // updateSunPosition(sun, date);
+    drawMeteorPath(scene, date, meteorPositionsData);
+    meteor = drawMeteorPosition(scene, date, meteorPositionsData);
     debouncedShowMoonOrbit(scene, earthMoon.moon, date);
     debouncedNeoFetchCenter(date);
     // If currently focused object is set, refocus to adjust for new position
@@ -104,6 +120,25 @@ function updateSlider() {
 
 slider.addEventListener('input', updateSlider);
 
+function createLabel(name) {
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = name;
+    document.body.appendChild(label);
+    return label;
+}
+
+function updateLabelPosition(label, object3D, camera, renderer) {
+    const vector = object3D.position.clone().project(camera);
+    const x = (vector.x * 0.5 + 0.5) * renderer.domElement.clientWidth;
+    const y = ( -vector.y * 0.5 + 0.5) * renderer.domElement.clientHeight;
+    label.style.left = `${x}px`;
+    label.style.top = `${y}px`;
+}
+
+// Usage example:
+// In your animation/render loop:
+updateLabelPosition(earthLabel, earthMoon.earth, camera, renderer);
 
 function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -142,6 +177,7 @@ function init() {
     }, false);
 
     // Initialize display
+    sun = createSunSphere(scene);
     updateDateRange();
     updateSlider();
     showMoonOrbit(scene, earthMoon.moon, sliderToDate(slider.value));
@@ -155,6 +191,13 @@ init();
 
 function animate() {
     requestAnimationFrame(animate);
+    updateLabelPosition(earthLabel, earthMoon.earth, camera, renderer);
+    updateLabelPosition(moonLabel, earthMoon.moon, camera, renderer);
+    updateLabelPosition(sunLabel, sun, camera, renderer);
+    if (meteor) {
+        updateLabelPosition(meteorLabel, meteor, camera, renderer);
+    }
+    controls.update();
     renderer.render(scene, camera);
 }
 animate();

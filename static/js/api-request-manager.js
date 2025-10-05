@@ -17,3 +17,13 @@ export async function fetchNeoByDateCenter(date) {
     }
     return await response.json();
 }
+
+export async function fetchNeoPositions(neoId, startDate, endDate) {
+    let url = `/api/neos/${encodeURIComponent(neoId)}/positions`;
+    url += `?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error('Failed to fetch NEO position data');
+    }
+    return await response.json();
+}

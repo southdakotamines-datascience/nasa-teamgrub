@@ -1,6 +1,7 @@
 from flask import Flask, send_from_directory, jsonify, request
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+from python.meteor_calculator import find_positions
 import os
 import requests
 
@@ -30,14 +31,6 @@ def get_neos():
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
 
-
-from flask import Flask, send_from_directory, jsonify, request
-from dotenv import load_dotenv
-from datetime import datetime, timedelta
-import os
-import requests
-
-# ... (other code remains unchanged)
 
 @app.route('/api/neos/range')
 def get_neos_by_date_range():
@@ -113,6 +106,7 @@ def get_neos_by_date_range():
     return jsonify({"neos": all_neos})
 
 
+
 @app.route('/api/neos/<string:neo_id>')
 def get_neo_id(neo_id):
     if not NASA_API_KEY:
@@ -131,7 +125,44 @@ def get_neo_id(neo_id):
         return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
     except requests.exceptions.RequestException as e:
         return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
-    
+
+@app.route('/api/neos/<string:neo_id>/positions')
+def get_neo_positions(neo_id):
+    if not NASA_API_KEY:
+        return jsonify({"error": "NASA API key not found."}), 500
+
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    resolution = int(request.args.get('resolution', 1000))
+
+    if not start_date_str or not end_date_str:
+        return jsonify({"error": "start_date and end_date are required in YYYY-MM-DD format."}), 400
+
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+
+    # Fetch NEO data by ID
+    api_url = f"https://api.nasa.gov/neo/rest/v1/neo/{neo_id}?api_key={NASA_API_KEY}"
+    try:
+        response = requests.get(api_url)
+        response.raise_for_status()
+        neo_data = response.json()
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            return jsonify({"error": f"Near Earth Object with ID '{neo_id}' not found."}), 404
+        return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"Failed to retrieve data from NASA API: {e}"}), 500
+
+    orbital_data = neo_data.get("orbital_data")
+    if not orbital_data:
+        return jsonify({"error": "Orbital data not found for this NEO."}), 404
+
+    positions = find_positions(orbital_data, start_date, end_date, resolution)
+    return jsonify({"neo_id": neo_id, "positions": positions})
 
 @app.route('/api/ehp')
 def get_ehp():

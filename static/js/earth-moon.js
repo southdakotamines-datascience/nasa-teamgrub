@@ -45,6 +45,16 @@ function getMoonPositionAtTime(time) {
     return moonVector;
 }
 
+function getSunPositionAtTime(time) {
+    const atime = Astronomy.MakeTime(time);
+    const sunGeo = Astronomy.GeoVector(Astronomy.Body.Sun, atime, true); // true = center on Earth
+    const AU_TO_KM = 149597870.7; // km per astronomical unit
+    const sunX = sunGeo.x * AU_TO_KM;
+    const sunY = sunGeo.y * AU_TO_KM;
+    const sunZ = sunGeo.z * AU_TO_KM;
+    return new THREE.Vector3(sunX, sunY, sunZ);
+}
+
 export function showMoonOrbit(scene, moon, date) {
     if (lastMoonOrbitLine) {
         scene.remove(lastMoonOrbitLine);
@@ -87,4 +97,21 @@ export function addSunLight(scene) {
     const ambientLight = new THREE.AmbientLight(0x222222); // Dim ambient light
     scene.add(ambientLight);
     return sunLight;
+}
+
+export function createSunSphere(scene) {
+    const textureLoader = new THREE.TextureLoader();
+    const sunGeometry = new THREE.SphereGeometry(696340, 64, 64); // Sun radius in km
+    // const sunTexture = textureLoader.load('static/textures/8k_sun.jpg');
+    // const sunMaterial = new THREE.MeshBasicMaterial({ map: sunTexture });
+    const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    sun.position.set(150000000, 0, 0); // Approximate distance to Sun in km
+    scene.add(sun);
+    return sun;
+}
+
+export function updateSunPosition(sun, time = new Date()) {
+    const sunPos = getSunPositionAtTime(time);
+    sun.position.copy(sunPos);
 }
