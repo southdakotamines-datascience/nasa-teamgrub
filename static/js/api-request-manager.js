@@ -27,3 +27,12 @@ export async function fetchNeoPositions(neoId, startDate, endDate) {
     }
     return await response.json();
 }
+
+export async function fetchNeoDetails(neoId) {
+    const url = `/api/neos/${encodeURIComponent(neoId)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error('Failed to fetch NEO details');
+    }
+    return await response.json();
+}

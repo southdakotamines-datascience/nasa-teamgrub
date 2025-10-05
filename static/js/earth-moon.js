@@ -106,7 +106,7 @@ export function createSunSphere(scene) {
     // const sunMaterial = new THREE.MeshBasicMaterial({ map: sunTexture });
     const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
     const sun = new THREE.Mesh(sunGeometry, sunMaterial);
-    sun.position.set(150000000, 0, 0); // Approximate distance to Sun in km
+    sun.position.set(-150000000, 0, 0); // Approximate distance to Sun in km
     scene.add(sun);
     return sun;
 }

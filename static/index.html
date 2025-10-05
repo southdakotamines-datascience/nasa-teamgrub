@@ -13,6 +13,10 @@
         }
     </script>
     <style>
+        html, body {
+            overflow: hidden;
+            height: 100%;
+        }
         body {
             margin: 0;
         }
@@ -52,8 +56,47 @@
         <input type="date" id="end-date">
     </div>
 </div>
+<div id="neo-list-container" style="
+  position: fixed;
+  top: 50vh;
+  right: 2vw;
+  width: 350px;
+  height: 40vh;
+  background: rgba(30,30,30,0.95);
+  border-radius: 12px;
+  box-shadow: 0 2px 16px #0008;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+">
+    <ul id="neo-list" class="list-group flex-grow-1 overflow-auto mb-0" style="height:100%;"></ul>
+</div>
+<div id="neo-details-container" style="
+  position: fixed;
+  top: 5vh;
+  right: 2vw;
+  width: 350px;
+  height: 40vh;
+  background: rgba(30,30,30,0.95);
+  border-radius: 12px;
+  box-shadow: 0 2px 16px #0008;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 16px;
+  color: #fff;
+  overflow-y: auto;
+">
+    <div id="neo-details">Select a meteor to see details.</div>
+</div>
+
 <div style="position:fixed; bottom:10px; left:0; width:100%; text-align:center; z-index:20; color:#ccc; font-size:14px; pointer-events:none; text-shadow:0 0 5px #000;">
-    Disclaimer: The Sun and Earth are static in this visualization and do not accurately represent their spins or orbits.
+    Disclaimer: The Sun and Earth are static in this visualization and do not accurately represent their spins or orbits. The sun is only for scale, so the meteor orbits may seem off. The positions of the meteors are accurate relative to Earth.
+    <p>Note: You may need to zoom out to see some objects.</p>
 </div>
 </body>
 </html>

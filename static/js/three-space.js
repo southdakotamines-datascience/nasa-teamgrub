@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {createEarthMoon, createSunSphere, showMoonOrbit, updateMoonOrbit, updateSunPosition} from './earth-moon.js';
-import {fetchNeoByDateCenter, fetchNeoPositions} from "./api-request-manager.js";
+import {fetchNeoByDateCenter, fetchNeoDetails, fetchNeoPositions, fetchNeosByDateRange} from "./api-request-manager.js";
 import {drawMeteorPath, drawMeteorPosition} from "./meteor-manager.js";
 
 const scene = new THREE.Scene();
@@ -18,6 +18,7 @@ const focusScale = 2.5; // Adjust for desired framing
 let currentlyFocusedObject = null;
 let meteorPositionsData = null; // Store fetched meteor positions data
 let sun = null;
+let currentlyFocusedNeoId = null;
 
 const slider = document.getElementById('datetime-slider');
 const valueDisplay = document.getElementById('datetime-value');
@@ -43,10 +44,13 @@ function updateDateRange() {
         const formattedMax = sliderMaxDate.toISOString().slice(0, 10);
         // Fetch NEO data for the new range
         // fetchNeosByDateRange(formattedMin, formattedMax).then(r => console.log(r));
-        fetchNeoPositions("3542519", formattedMin, formattedMax).then(positions => {
+        fetchNeoPositions(currentlyFocusedNeoId, formattedMin, formattedMax).then(positions => {
             meteorPositionsData = positions;
             drawMeteorPosition(scene, sliderToDate(slider.value), positions);
             drawMeteorPath(scene, positions)
+        });
+        fetchNeosByDateRange(formattedMin, formattedMax).then(data => {
+            renderNEOList(data.neos);
         })
     }
     updateSlider();
@@ -97,6 +101,51 @@ function focusOnObject(object, buttonId = null, preserveZoom = false) {
     controls.update();
 }
 
+function renderNEOList(neos) {
+    const list = document.getElementById('neo-list');
+    const details = document.getElementById('neo-details');
+    list.innerHTML = '';
+    neos.forEach(neo => {
+        const item = document.createElement('li');
+        item.className = 'list-group-item list-group-item-action';
+        item.style.cursor = 'pointer';
+        item.innerHTML = `<strong>${neo.name}</strong> (ID: ${neo.id})<br>
+            Est. Diameter: ${neo.estimated_diameter.kilometers.estimated_diameter_max.toFixed(2)} km`;
+        item.dataset.neoId = neo.id;
+        item.addEventListener('click', async () => {
+            const formattedMin = sliderMinDate.toISOString().slice(0, 10);
+            const formattedMax = sliderMaxDate.toISOString().slice(0, 10);
+            currentlyFocusedNeoId = neo.id;
+            console.log(neo.name)
+            meteorLabel.textContent = neo.name;
+            // Fetch and show NEO details
+            try {
+                const detailsData = await fetchNeoDetails(neo.id);
+                details.innerHTML = `
+                    <h5>${detailsData.name}</h5>
+                    <div><b>ID:</b> ${detailsData.id}</div>
+                    <div><b>Est. Diameter:</b> ${detailsData.estimated_diameter.kilometers.estimated_diameter_min.toFixed(2)} - ${detailsData.estimated_diameter.kilometers.estimated_diameter_max.toFixed(2)} km</div>
+                    <div><b>Hazardous:</b> ${detailsData.is_potentially_hazardous_asteroid ? 'Yes' : 'No'}</div>
+                    <div><b>Absolute Magnitude:</b> ${detailsData.absolute_magnitude_h}</div>
+                    <!-- Add more fields as needed -->
+                `;
+            } catch (err) {
+                console.error(err);
+                details.innerHTML = 'Failed to load details.';
+            }
+
+            // Fetch and draw positions as before
+            fetchNeoPositions(neo.id, formattedMin, formattedMax).then(positions => {
+                meteorPositionsData = positions;
+                let m = drawMeteorPosition(scene, sliderToDate(slider.value), positions);
+                drawMeteorPath(scene, positions);
+                updateLabelPosition(meteorLabel, m, camera, renderer);
+            });
+        });
+        list.appendChild(item);
+    });
+}
+
 // Map slider value to date
 function sliderToDate(val) {
     const t = sliderMinDate.getTime() + (val - sliderMin) / (sliderMax - sliderMin) * (sliderMaxDate.getTime() - sliderMinDate.getTime());
@@ -107,7 +156,7 @@ function updateSlider() {
     const date = sliderToDate(slider.value);
     valueDisplay.textContent = date.toLocaleString();
     updateMoonOrbit(earthMoon.moon, date);
-    // updateSunPosition(sun, date);
+    updateSunPosition(sun, date);
     drawMeteorPath(scene, date, meteorPositionsData);
     meteor = drawMeteorPosition(scene, date, meteorPositionsData);
     debouncedShowMoonOrbit(scene, earthMoon.moon, date);
