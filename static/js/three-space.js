@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import {addSunLight, createEarthMoon, showMoonOrbit, updateMoonOrbit} from './earth-moon.js';
+import {createEarthMoon, showMoonOrbit, updateMoonOrbit} from './earth-moon.js';
+import {fetchNeoByDateCenter} from "./api-request-manager.js";
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500000000);
@@ -26,14 +27,37 @@ startDateInput.value = defaultStart;
 endDateInput.value = defaultEnd;
 
 // Set slider min/max based on datepickers
-function updateSliderRange() {
+function updateDateRange() {
     sliderMinDate = new Date(startDateInput.value);
     sliderMaxDate = new Date(endDateInput.value);
+    if (sliderMinDate.getTime() < sliderMaxDate.getTime()) {
+        const formattedMin = sliderMinDate.toISOString().slice(0, 10);
+        const formattedMax = sliderMaxDate.toISOString().slice(0, 10);
+        // Fetch NEO data for the new range
+        // fetchNeosByDateRange(formattedMin, formattedMax).then(r => console.log(r));
+    }
     updateSlider();
 }
 
-startDateInput.addEventListener('change', updateSliderRange);
-endDateInput.addEventListener('change', updateSliderRange);
+function debounce(fn, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+const debouncedShowMoonOrbit = debounce((scene, moon, date) => {
+    showMoonOrbit(scene, moon, date);
+}, 50);
+
+const debouncedNeoFetchCenter = debounce((date) => {
+    const formattedDate = date.toISOString().slice(0, 10);
+    fetchNeoByDateCenter(formattedDate).then(r => console.log(r));
+}, 500);
+
+startDateInput.addEventListener('change', updateDateRange);
+endDateInput.addEventListener('change', updateDateRange);
 
 function focusOnObject(object, buttonId = null, preserveZoom = false) {
     // make the button appear pressed
@@ -70,7 +94,8 @@ function updateSlider() {
     const date = sliderToDate(slider.value);
     valueDisplay.textContent = date.toLocaleString();
     updateMoonOrbit(earthMoon.moon, date);
-    showMoonOrbit(scene, earthMoon.moon, date);
+    debouncedShowMoonOrbit(scene, earthMoon.moon, date);
+    debouncedNeoFetchCenter(date);
     // If currently focused object is set, refocus to adjust for new position
     if (currentlyFocusedObject) {
         focusOnObject(currentlyFocusedObject, null, true);
@@ -78,7 +103,6 @@ function updateSlider() {
 }
 
 slider.addEventListener('input', updateSlider);
-
 
 
 function init() {
@@ -118,7 +142,7 @@ function init() {
     }, false);
 
     // Initialize display
-    updateSliderRange();
+    updateDateRange();
     updateSlider();
     showMoonOrbit(scene, earthMoon.moon, sliderToDate(slider.value));
     // addSunLight(scene);
