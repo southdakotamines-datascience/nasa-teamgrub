@@ -184,10 +184,6 @@ def impact_page():
     # serves /static/impact.html
     return send_from_directory('static', 'impact.html')
 
-def mass_from_diameter(diameter_m: float, density_kg_m3: float) -> float:
-    # sphere volume * density
-    return density_kg_m3 * (4.0/3.0) * pi * (diameter_m/2.0)**3
-
 @app.post('/api/impact')
 def impact_api():
     p = request.get_json(force=True)
@@ -201,8 +197,8 @@ def impact_api():
     except (KeyError, ValueError):
         return jsonify({"error":"Bad inputs. Required: lat, lon, diameter_m, density_kg_m3, velocity_m_s, angle_deg"}), 400
 
-    ang = max(1.0, min(89.0, ang))
-    m = mass_from_diameter(d, rho)
+    ang = max(1.0, min(89.0, ang)) # Impact angle measured from horizontal (1-89 deg)
+    m = rho * (4.0/3.0) * pi * (d/2.0)**3
     E_total = 0.5 * m * v**2
 
     # Toy atmospheric loss model (tunable)
@@ -214,6 +210,7 @@ def impact_api():
     return jsonify({
         "lat": lat, "lon": lon,
         "mass_kg": m,
+        "mass_tons": m/1000,
         "E_total": E_total,
         "E_atm_loss": E_atm_loss,
         "E_ground": E_ground,

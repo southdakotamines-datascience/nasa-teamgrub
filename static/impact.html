@@ -44,9 +44,8 @@
     // Try to pull reasonable values from NASA's NEO JSON
     const approach = neo.close_approach_data?.[0];  // take first close approach
     const velocity = parseFloat(approach?.relative_velocity?.kilometers_per_second || 0);
-    const diameter =
-      neo.estimated_diameter?.meters?.estimated_diameter_max ||
-      neo.estimated_diameter?.meters?.estimated_diameter_min || 50;
+    const diameter = neo.estimated_diameter?.meters?.estimated_diameter_max ||
+                     neo.estimated_diameter?.meters?.estimated_diameter_min || 50;
   
     // Fill your input boxes if available
       document.getElementById("velocity_m_s").value = (velocity * 1000).toFixed(0); // convert km/s → m/s
@@ -174,19 +173,33 @@ const data = await res.json();
 if (data.error) { alert(data.error); return; }
 
 
-// 1) Pick a real-world radius from energy (tune this mapping for your demo)
-const radiusKm = 50 * Math.log10(1 + data.E_ground / 1e12); // simple demo mapping
+// --- Better radius model: blast (cube-root) scaling ---
+const J_PER_MT = 4.184e15;                 // 1 megaton TNT in Joules
+const Y_mt     = data.E_ground / J_PER_MT; // ground-coupled yield (Mt)
 
-// 2) Convert km -> angular degrees on Earth
-const radiusDeg = (radiusKm / 6371) * (180 / Math.PI);
+// Choose constants (tune to taste):
+// R_out ≈ 7 km at 1 Mt for "moderate/visible damage" zone
+const K_OUT_KM  = 7.0;
+const R_out_km  = K_OUT_KM * Math.cbrt(Math.max(Y_mt, 0));
 
-// 3) Build a geodesic circle (on the sphere) centered at [lon, lat]
-const geoCircle = d3.geoCircle().center([lon, lat]).radius(radiusDeg)(); // returns GeoJSON polygon
+// Inner “core” (very heavy damage/cratering) ~ 30–50% of outer radius
+const CORE_FRACTION = 0.4;
+const R_core_km     = CORE_FRACTION * R_out_km;
+
+// Convert to angular degrees on Earth and clamp (avoid wrap-around)
+const rad2deg   = 180 / Math.PI;
+const R_out_deg  = Math.min(179, (R_out_km  / 6371) * rad2deg);
+const R_core_deg = Math.min(179, (R_core_km / 6371) * rad2deg);
+
+// Build geodesic circles centered at [lon, lat]
+const outerCircle = d3.geoCircle().center([lon, lat]).radius(R_out_deg)();
+const coreCircle  = d3.geoCircle().center([lon, lat]).radius(R_core_deg)();
+
 
 // --- Outer damage zone (translucent fill)
 mapG.append("path")
   .attr("class", "impact-fill")
-  .attr("d", path(geoCircle))
+  .attr("d", path(outerCircle))
   .attr("fill", "orange")
   .attr("opacity", 0.25)
   .attr("pointer-events", "none")
@@ -195,7 +208,7 @@ mapG.append("path")
 // --- Outline (constant screen thickness)
 mapG.append("path")
   .attr("class", "impact-outline")
-  .attr("d", path(geoCircle))
+  .attr("d", path(outerCircle))
   .attr("fill", "none")
   .attr("stroke", "orange")
   .attr("stroke-width", 2)
@@ -205,8 +218,6 @@ mapG.append("path")
   .raise();
 
 // --- Inner core zone (dark red, smaller geodesic circle)
-const coreRadiusDeg = radiusDeg * 0.45;  // tweak factor as you like
-const coreCircle = d3.geoCircle().center([lon, lat]).radius(coreRadiusDeg)();
 mapG.append("path")
   .attr("class", "impact-core")
   .attr("d", path(coreCircle))
@@ -215,15 +226,16 @@ mapG.append("path")
   .attr("pointer-events", "none")
   .raise();
 
+
 // Format output as clean multi-line HTML
 const out = document.getElementById("out");
 out.innerHTML = `
   <table style="border-collapse:collapse;font-size:13px;">
-    <tr><td style="padding:2px 6px;"><b>Mass:</b></td><td>${data.mass_kg.toLocaleString(undefined, {maximumFractionDigits:1})} kg</td></tr>
-    <tr><td style="padding:2px 6px;"><b>Total Energy:</b></td><td>${(data.E_total/1e12).toFixed(3)} TJ</td></tr>
-    <tr><td style="padding:2px 6px;"><b>Atmospheric Loss:</b></td><td>${(data.E_atm_loss/1e12).toFixed(3)} TJ</td></tr>
-    <tr><td style="padding:2px 6px;"><b>Ground Impact:</b></td><td>${(data.E_ground/1e12).toFixed(3)} TJ</td></tr>
-    <tr><td style="padding:2px 6px;"><b>TNT Equivalent:</b></td><td>${(data.E_ground / 4.184e12).toFixed(2)} kT TNT</td></tr>
+    <tr><td style="padding:2px 6px;"><b>Mass:</b></td><td>${data.mass_tons.toLocaleString(undefined, {maximumFractionDigits:0})} tons</td></tr>
+    <tr><td style="padding:2px 6px;"><b>Total Energy:</b></td><td>${(data.E_total/1e12).toLocaleString(undefined, { maximumFractionDigits: 0 })} TJ</td></tr>
+    <tr><td style="padding:2px 6px;"><b>Atmospheric Loss:</b></td><td>${(data.E_atm_loss/1e12).toLocaleString(undefined, { maximumFractionDigits: 0 })} TJ</td></tr>
+    <tr><td style="padding:2px 6px;"><b>Ground Impact:</b></td><td>${(data.E_ground/1e12).toLocaleString(undefined, { maximumFractionDigits: 0 })} TJ</td></tr>
+    <tr><td style="padding:2px 6px;"><b>TNT Equivalent:</b></td><td>${(data.E_ground / 4.184e12).toLocaleString(undefined, { maximumFractionDigits: 0 })} kT TNT</td></tr>
   </table>
 `;});
 </script>
