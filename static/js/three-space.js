@@ -80,10 +80,10 @@ const debouncedShowEarthOrbit = debounce((scene, earth, date) => {
     showEarthOrbit(scene, earth, date);
 }, 50);
 
-const debouncedNeoFetchCenter = debounce((date) => {
-    const formattedDate = date.toISOString().slice(0, 10);
-    fetchNeoByDateCenter(formattedDate).then(r => console.log(r));
-}, 500);
+// const debouncedNeoFetchCenter = debounce((date) => {
+//     const formattedDate = date.toISOString().slice(0, 10);
+//     fetchNeoByDateCenter(formattedDate).then(r => console.log(r));
+// }, 500);
 
 function updateImpactButtonVisibility(currentFocusedNeoId) {
     const btnContainer = document.getElementById('impact-btn-container');
@@ -93,7 +93,7 @@ function updateImpactButtonVisibility(currentFocusedNeoId) {
 startDateInput.addEventListener('change', updateDateRange);
 endDateInput.addEventListener('change', updateDateRange);
 
-function focusOnObject(object, buttonId = null, preserveZoom = false) {
+function focusOnObject(object, buttonId = null, preserveZoom = false, distance = null) {
     // make the button appear pressed
     if (buttonId) {
         document.getElementById(buttonId).classList.add('active');
@@ -111,9 +111,9 @@ function focusOnObject(object, buttonId = null, preserveZoom = false) {
     const direction = new THREE.Vector3()
         .subVectors(camera.position, controls.target)
         .normalize();
-    const distance = preserveZoom ? currentDistance : object.geometry.parameters.radius * focusScale;
+    const d = distance ?? (preserveZoom ? currentDistance : object.geometry.parameters.radius * focusScale);
     camera.position.copy(
-        controls.target.clone().add(direction.multiplyScalar(distance))
+        controls.target.clone().add(direction.multiplyScalar(d))
     );
     controls.update();
 }
@@ -211,7 +211,7 @@ function updateSlider() {
     meteor = drawMeteorPosition(scene, date, meteorPositionsData);
     debouncedShowMoonOrbit(scene, earthMoon.moon, date);
     debouncedShowEarthOrbit(scene, earthMoon.earth, date);
-    debouncedNeoFetchCenter(date);
+    // debouncedNeoFetchCenter(date);
     // If currently focused object is set, refocus to adjust for new position
     if (currentlyFocusedObject) {
         focusOnObject(currentlyFocusedObject, null, true);
@@ -282,7 +282,6 @@ function init() {
         focusOnObject(sun, 'focus-sun-btn');
     };
 
-    focusOnObject(earthMoon.earth, 'focus-earth-btn');
 
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -304,6 +303,7 @@ function init() {
     updateDateRange();
     updateSlider();
     showMoonOrbit(scene, earthMoon.moon, sliderToDate(slider.value));
+    focusOnObject(sun, 'focus-sun-btn', false, 150000000);
     // addSunLight(scene);
     // plot x,y,z axes for reference
     // const axesHelper = new THREE.AxesHelper(10000);
@@ -320,6 +320,20 @@ function updateMoonLabelVisibility(moonObject3D, camera, labelElement, maxDistan
         labelElement.style.display = 'block';
     }
 }
+
+setInterval(() => {
+    const min = parseInt(slider.min);
+    const max = parseInt(slider.max);
+    // Only auto-advance if checkbox is checked
+    const autoPlayCheckbox = document.getElementById('auto-play-checkbox');
+    if (autoPlayCheckbox.checked === false) return;
+    let value = parseInt(slider.value) + 1;
+    if (value > max) {
+        value = min;
+    }
+    slider.value = value;
+    updateSlider();
+}, 10);
 
 function animate() {
     requestAnimationFrame(animate);

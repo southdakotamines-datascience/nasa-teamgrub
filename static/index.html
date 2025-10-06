@@ -17,6 +17,7 @@
             overflow: hidden;
             height: 100%;
         }
+
         body {
             margin: 0;
         }
@@ -24,6 +25,7 @@
         canvas {
             display: block;
         }
+
         .label {
             position: absolute;
             color: white;
@@ -34,20 +36,24 @@
             text-shadow: 0 0 5px #000;
         }
     </style>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
 
 </head>
 <body>
 <script src="/static/js/libraries/astronomy.browser.min.js"></script>
 <script type="module" src="/static/js/three-space.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"></script>
 <div id="ui-overlay" style="position:fixed; top:20px; left:20px; z-index:10;">
     <button class="btn" id="focus-earth-btn">Focus Earth</button>
     <button class="btn" id="focus-moon-btn">Focus Moon</button>
     <button class="btn" id="focus-sun-btn">Focus Sun</button>
     <div class="d-flex align-items-center gap-2">
         <label for="datetime-slider" class="form-label mb-0">Date/Time:</label>
-        <input type="range" class="form-range" id="datetime-slider" min="0" max="1000" value="1000" step="1" style="width:300px;">
+        <input type="range" class="form-range" id="datetime-slider" min="0" max="1000" value="1000" step="1"
+               style="width:300px;">
         <span id="datetime-value"></span>
     </div>
     <div class="d-flex align-items-center gap-2 mb-2">
@@ -56,8 +62,14 @@
         <label for="end-date" class="mb-0">End Date:</label>
         <input type="date" id="end-date">
     </div>
-    <div id="impact-btn-container" style="display: none;">
-        <button class="btn-primary" onclick="window.location.href='/impact'">Go to Impact</button>
+    <div class="d-flex align-items-center gap-2">
+        <div id="impact-btn-container" style="display: none;">
+            <button class="btn-primary" onclick="window.location.href='/impact'">Go to Impact</button>
+        </div>
+        <div id="auto-play-container" class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="auto-play-checkbox">
+            <label class="form-check-label" for="auto-play-checkbox">Auto Play</label>
+        </div>
     </div>
 </div>
 <div id="neo-list-container" style="
@@ -99,10 +111,7 @@
 </div>
 
 <div style="position:fixed; bottom:10px; left:0; width:100%; text-align:center; z-index:20; color:#ccc; font-size:14px; pointer-events:none; text-shadow:0 0 5px #000;">
-    Disclaimer: The Sun and Earth are static in this visualization and do not accurately represent their spins or orbits.
-    The sun is only for scale, so the meteor orbits may seem off.
-    The positions of the meteors are accurate relative to Earth.
-    Asteroid size is enlarged for visibility. Data form NASA NEO API.
+    Disclaimer: Asteroid size is enlarged for visibility. Data from NASA NEO API.
     Note: You may need to zoom out to see some objects.
 </div>
 </body>

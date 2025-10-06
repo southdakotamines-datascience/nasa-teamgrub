@@ -161,8 +161,8 @@ export function addSunLight(scene) {
 }
 
 export function createSunSphere(scene) {
-    const textureLoader = new THREE.TextureLoader();
-    const sunGeometry = new THREE.SphereGeometry(696340, 64, 64); // Sun radius in km
+    // const textureLoader = new THREE.TextureLoader();
+    const sunGeometry = new THREE.SphereGeometry(   696340, 64, 64); // Sun radius in km
     // const sunTexture = textureLoader.load('static/textures/8k_sun.jpg');
     // const sunMaterial = new THREE.MeshBasicMaterial({ map: sunTexture });
     const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
