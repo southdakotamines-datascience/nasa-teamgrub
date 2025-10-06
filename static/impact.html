@@ -3,63 +3,86 @@
 <head>
   <meta charset="utf-8" />
   <title>Meteor Impact</title>
-  <style>
-    body { margin:0; font-family: system-ui, sans-serif; }
-    #ui { position: fixed; right: 12px; top: 12px; background:#fff; padding:12px; border:1px solid #ddd; border-radius:8px; }
-    label { display:block; margin:6px 0 2px; }
-    input { width: 180px; }
-  </style>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* prevents scrolling */
+    font-family: system-ui, sans-serif;
+  }
+  svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  #ui {
+    position: fixed;
+    right: 12px;
+    top: 12px;
+    background: #fff;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    z-index: 10; /* keep on top of map */
+  }
+  label { display: block; margin: 6px 0 2px; }
+  input { width: 180px; }
+</style>
 <script type="module">
   import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
   import { feature } from "https://cdn.jsdelivr.net/npm/topojson-client@3/+esm";
 
   // --- Load NEO data from sessionStorage ---
-const neo = JSON.parse(sessionStorage.getItem("neo") || "null");
+  const neo = JSON.parse(sessionStorage.getItem("neo") || "null");
 
-if (neo) {
-  console.log("Loaded NEO data:", neo);
+  if (neo) {
+    console.log("Loaded NEO data:", neo);
 
-  // Try to pull reasonable values from NASA's NEO JSON
-  const approach = neo.close_approach_data?.[0];  // take first close approach
-  const velocity = parseFloat(approach?.relative_velocity?.kilometers_per_second || 0);
-  const diameter =
-    neo.estimated_diameter?.meters?.estimated_diameter_max ||
-    neo.estimated_diameter?.meters?.estimated_diameter_min || 50;
+    // Try to pull reasonable values from NASA's NEO JSON
+    const approach = neo.close_approach_data?.[0];  // take first close approach
+    const velocity = parseFloat(approach?.relative_velocity?.kilometers_per_second || 0);
+    const diameter =
+      neo.estimated_diameter?.meters?.estimated_diameter_max ||
+      neo.estimated_diameter?.meters?.estimated_diameter_min || 50;
   
-  // Fill your input boxes if available
-  document.getElementById("velocity_m_s").value = (velocity * 1000).toFixed(0); // convert km/s → m/s
-  document.getElementById("diameter_m").value = diameter.toFixed(1);
-  document.getElementById("density").value = 3000; // default rock density
-  document.getElementById("angle_deg").value = 45; // default if unknown
-}
+    // Fill your input boxes if available
+      document.getElementById("velocity_m_s").value = (velocity * 1000).toFixed(0); // convert km/s → m/s
+      document.getElementById("diameter_m").value = diameter.toFixed(1);
+      document.getElementById("density").value = 3000; // default rock density
+      document.getElementById("angle_deg").value = 45; // default if unknown
+  }
 
 
   // 2:1 aspect to match equirectangular texture
-  const width = 960, height = 480;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
 
-  const svg = d3.select("body").append("svg")
+  const svg = d3
+    .select("body")
+    .append("svg")
     .attr("width", width)
     .attr("height", height);
 
-  // A group that will be zoomed/panned
-  const mapG = svg.append("g").attr("id", "map");
+  // A fixed-position viewport (centered 2:1 box) + a zoomable group inside it
+  const viewG = svg.append("g").attr("id", "viewport");
+  const mapG  = viewG.append("g").attr("id", "map");
 
-  // Equirectangular projection to match the texture
-  const projection = d3.geoEquirectangular().fitSize([width, height], { type: "Sphere" });
+  // Equirectangular; we'll fit it to the 2:1 box in layout()
+  const projection = d3.geoEquirectangular();
   const path = d3.geoPath(projection);
 
-  // Draw satellite image as background
-  mapG.append("image")
+  const earthImg = mapG
+    .append("image")
     .attr("href", "/static/textures/8k_earth_daymap.jpg")
-    .attr("width", width)
-    .attr("height", height)
-    .attr("preserveAspectRatio", "none"); // assumes 2:1 image (equirectangular)
+    .attr("preserveAspectRatio", "none");
 
   // Load and draw country borders on top (no fill)
   const topo = await d3.json("/static/countries-110m.json");
   const countries = feature(topo, topo.objects.countries);
 
-  mapG.selectAll("path.country")
+  const countriesSel = mapG.selectAll("path.country")
     .data(countries.features)
     .join("path")
     .attr("class", "country")
@@ -68,46 +91,68 @@ if (neo) {
     .attr("stroke", "#ffffff")
     .attr("stroke-width", 0.3);
 
-  // Marker for clicks
-  const marker = mapG.append("circle")
-    .attr("r", 0)
-    .attr("fill", "red")
-    .attr("opacity", 0.5);
-
-
-const zoom = d3.zoom()
-  .scaleExtent([1, 8])                     // min/max zoom
-  .translateExtent([[0, 0], [width, height]]) // keep map within viewport bounds
-  .on("zoom", (event) => {
-    mapG.attr("transform", event.transform);
-    const k = event.transform.k;
-    marker.attr("r", 4 / k); // keep marker dot constant if we ever show it
+  const zoom = d3.zoom()
+    .scaleExtent([1, 8])                     // min/max zoom
+    .translateExtent([[0, 0], [width, height]]) // keep map within viewport bounds
+    .on("zoom", (event) => {
+      mapG.attr("transform", event.transform);
   });
-
-
 
   // Attach zoom to the SVG only (UI is a separate fixed div, so it won't move)
   svg.call(zoom);
 
+  // Globals used by layout() and click handler
+  let mapW = 0, mapH = 0, offsetX = 0, offsetY = 0;
+
+  function layout() {
+    const W = window.innerWidth, H = window.innerHeight;
+
+    // 1) Largest 2:1 rectangle that fits inside the window
+    mapW = W;
+    mapH = W / 2;
+    if (mapH > H) {                // too tall → base on height
+      mapH = H;
+      mapW = H * 2;
+    }
+
+    // 2) Center that box in the window
+    offsetX = (W - mapW) / 2;
+    offsetY = (H - mapH) / 2;
+
+    // 3) Resize SVG
+    svg.attr("width", W).attr("height", H);
+
+    // 4) Position the viewport group (mapG is inside it)
+    viewG.attr("transform", `translate(${offsetX},${offsetY})`);
+
+    // 5) Fit projection to the 2:1 box (NO stretching)
+    projection.fitSize([mapW, mapH], { type: "Sphere" });
+
+    // 6) Size the raster image EXACTLY to that box
+    earthImg.attr("x", 0).attr("y", 0).attr("width", mapW).attr("height", mapH);
+
+    // 7) Redraw country paths with new projection
+    countriesSel.attr("d", path);
+
+    // 8) Keep zoom panning within the 2:1 box
+    zoom.translateExtent([[0, 0], [mapW, mapH]]);
+}
+
+// Run once and on resize
+layout();
+window.addEventListener("resize", layout);
+
+
 svg.on("click", async (event) => {
-  // Screen-space click
-  const [sx, sy] = d3.pointer(event, svg.node());
+const [sx, sy] = d3.pointer(event, svg.node());
+const t = d3.zoomTransform(svg.node());
+// subtract viewport offset, then undo zoom
+const [mx, my] = t.invert([sx - offsetX, sy - offsetY]);
 
-  // ---- NEW: undo the zoom/pan transform to get map-local coords
-  const t = d3.zoomTransform(svg.node());
-  const [mx, my] = t.invert([sx, sy]);    // map coordinates before projection
-
-  // Convert to lon/lat
-  const [lon, lat] = projection.invert([mx, my]);
-
-// Hide marker so we only see the geodesic impact shape
-marker.attr("cx", mx).attr("cy", my).attr("r", 0);
-
+// Convert to lon/lat
+const [lon, lat] = projection.invert([mx, my]);
 
 mapG.selectAll(".impact-fill, .impact-outline, .impact-core").remove();
-
-
-
 
 // Build payload from UI
 const payload = {
@@ -169,11 +214,6 @@ mapG.append("path")
   .attr("pointer-events", "none")
   .raise();
 
-
-
-
-
-
 // Format output as clean multi-line HTML
 const out = document.getElementById("out");
 out.innerHTML = `
@@ -184,10 +224,7 @@ out.innerHTML = `
     <tr><td style="padding:2px 6px;"><b>Ground Impact:</b></td><td>${(data.E_ground/1e12).toFixed(3)} TJ</td></tr>
     <tr><td style="padding:2px 6px;"><b>TNT Equivalent:</b></td><td>${(data.E_ground / 4.184e12).toFixed(2)} kT TNT</td></tr>
   </table>
-`;
-
-});
-
+`;});
 </script>
 </head>
 <body>
